@@ -1801,22 +1801,15 @@ class ParseTextTwee:
                 continue
 
             """还有跨行print"""
-            if any((
-                line.endswith("<<print either("),
-                line.endswith("<<= either"),
-                line.endswith("<<- either"),
-                line.startswith("<<print formatList") and line.endswith("{")
-            )):
+            if (line.endswith("<<print either(") or line.endswith("<<= either") or line.endswith("<<- either")):
                 multirow_print_flag = True
                 results.append(True)
                 continue
-            elif multirow_print_flag and any((
-                line.startswith(")>>"),
-                line.endswith(')>></span>"'),
-                line.endswith('")>>'),
-                line.endswith('")>>"')
-            )):
-                results.append(True)
+            elif multirow_print_flag and (line.startswith(")>>") or line.endswith(')>></span>"')):
+                if line != ")>>":
+                    results.append(True)
+                else:
+                    results.append(False)
                 multirow_print_flag = False
                 continue
             elif multirow_print_flag:
@@ -1862,56 +1855,6 @@ class ParseTextTwee:
                 results.append(False)
                 continue
             elif multirow_error_flag:
-                results.append(False)
-                continue
-
-            """还有这个"""
-            if line.startswith("<<run $(`#${_id}") and (
-                '"Take" : ' in line or '"Present" : ' in line
-            ):
-                results.append(True)
-                continue
-
-            """以及这个"""
-            if line.startswith("<<run _linePool"):
-                if line.endswith(">>"):
-                    results.append(True)
-                else:
-                    multirow_run_line_pool_flag = True
-                    results.append(False)
-                continue
-            elif multirow_run_line_pool_flag and line.endswith(")>>"):
-                multirow_run_line_pool_flag = False
-                results.append(False)
-                continue
-            elif multirow_run_line_pool_flag:
-                results.append(True)
-                continue
-
-            """跨行run，逆天"""
-            if line.startswith("<<run ") and ">>" not in line:
-                multirow_run_flag = True
-                results.append(False)
-                continue
-            elif multirow_run_flag and line in {"})>>", "}>>", ")>>", "]>>", "});>>"}:
-                multirow_run_flag = False
-                results.append(False)
-                continue
-            elif multirow_run_flag and ("Enable indexedDB" in line):
-                multirow_run_flag = False
-                results.append(True)
-                continue
-            elif multirow_run_flag and any((
-                "'Owl plushie'" in line,
-                "item.nameText" in line,
-                "$_item.name" in line,
-                "<span" in line,
-                ".nameText" in line,
-                "pushUnique" in line
-            )):
-                results.append(True)
-                continue
-            elif multirow_run_flag:
                 results.append(False)
                 continue
 
@@ -1983,7 +1926,6 @@ class ParseTextTwee:
                 or "hint:" in line
                 or 'museum:' in line
                 or "journal:" in line
-                or "journalName:" in line
                 or 'name:' in line
                 or 'stolen:' in line
                 or 'recovered:' in line
@@ -2024,6 +1966,49 @@ class ParseTextTwee:
                 results.append(True)
                 continue
 
+            """还有这个"""
+            if line.startswith("<<run $(`#${_id}") and (
+                '"Take" : ' in line or '"Present" : ' in line
+            ):
+                results.append(True)
+                continue
+
+            """以及这个"""
+            if line.startswith("<<run _linePool"):
+                if line.endswith(">>"):
+                    results.append(True)
+                else:
+                    multirow_run_line_pool_flag = True
+                    results.append(False)
+                continue
+            elif multirow_run_line_pool_flag and line.endswith(")>>"):
+                multirow_run_line_pool_flag = False
+                results.append(False)
+                continue
+            elif multirow_run_line_pool_flag:
+                results.append(True)
+                continue
+
+            """跨行run，逆天"""
+            if line.startswith("<<run ") and ">>" not in line:
+                multirow_run_flag = True
+                results.append(False)
+                continue
+            elif multirow_run_flag and line in {"})>>", "}>>", ")>>", "]>>", "});>>"}:
+                multirow_run_flag = False
+                results.append(False)
+                continue
+            elif multirow_run_flag and ("Enable indexedDB" in line):
+                multirow_run_flag = False
+                results.append(True)
+                continue
+            elif multirow_run_flag and ("'Owl plushie'" in line):
+                results.append(True)
+                continue
+            elif multirow_run_flag:
+                results.append(False)
+                continue
+
             if self.is_comment(line) or self.is_event(line) or self.is_only_marks(line):
                 results.append(False)
                 continue
@@ -2034,13 +2019,15 @@ class ParseTextTwee:
                 or self.is_tag_td(line)
                 or self.is_widget_note(line)
                 or self.is_widget_print(line)
-                or self.is_widget_case(line)
                 or self.is_widget_option(line)
                 or self.is_widget_button(line)
                 or self.is_widget_link(line)
                 or self.is_widget_textbox(line)
                 or self.is_widget_number_stepper(line)
             ):
+                if '.replaceAll("["' in line or ".replace(/\[/g" in line:
+                    results.append(False)
+                    continue
                 results.append(True)
                 continue
             elif (
@@ -2104,13 +2091,6 @@ class ParseTextTwee:
                 or "<<moneyStatsTitle" in line
                 or "<td " in line
                 or "confirm(" in line
-                or "$_thing.name" in line
-                or "$_item.name" in line
-                or "<<recipe_name" in line
-                or "<<print" in line
-                or "pushUnique" in line
-                or "<<run hcItemAdd({" in line
-                or "<<whitneyRoofRuleBreak" in line
             ):
                 results.append(True)
             elif ("<" in line and self.is_only_widgets(line)) or (
@@ -2201,10 +2181,8 @@ class ParseTextTwee:
         """注释"""
         if line.startswith("*") or line.startswith("*/") or line.startswith("-->"):
             return True
-        return (
-                any(line.startswith(_) for _ in {"/*", "<!--"})
-                and
-                any(line.endswith(_) for _ in {"*/", "-->"})
+        return any(line.startswith(_) for _ in {"/*", "<!--"}) and any(
+            line.endswith(_) for _ in {"*/", "-->"}
         )
 
     @staticmethod
@@ -2267,16 +2245,6 @@ class ParseTextTwee:
         )
 
     @staticmethod
-    def is_widget_case(line: str) -> bool:
-        """<<case xxx>>"""
-        return any(
-            re.findall(
-                r"<<(?:case|=|-)\s[^<]*[\"\'`\w]+[\-\?\s\w\.\$,\'\"<>\[\]\(\)/]+(?:\)>>|\">>|\'>>|`>>|\]>>|>>)",
-                line,
-            )
-        )
-
-    @staticmethod
     def is_widget_textbox(line: str) -> bool:
         """<<textbox xxx>>"""
         return any(re.findall(r"<<textbox\s\"", line))
@@ -2305,8 +2273,17 @@ class ParseTextTwee:
     def is_widget_link(line: str) -> bool:
         """<<link [[xxx|yyy]]>>, <<link "xxx">>"""
         return any(
-            # re.findall(r"<<link\s*(\[\[|\"\w|`\w|\'\w|\"\(|`\(|\'\(|_\w|`)", line)
             re.findall(r"<<link\s*(\[\[|\"\w|`\w|\'\w|\"\(|`\(|\'\(|_\w|`)", line)
+        )
+
+    @staticmethod
+    def is_widget_high_rate_link(line: str) -> bool:
+        """高频选项"""
+        return any(
+            re.findall(
+                r"<<link \[\[(Next\||Next\s\||Leave\||Refuse\||Return\||Resume\||Confirm\||Continue\||Stop\||Phase\|)",
+                line,
+            )
         )
 
     @staticmethod
@@ -2734,11 +2711,7 @@ class ParseTextJS:
                 'return i + "rd";',
                 'return i + "th";',
                 'names',
-                'Wikifier.wikifyEval',
-                "group",
-                "Group",
-                "Alternative",
-                "alternative"
+                'Wikifier.wikifyEval'
             }
         )
 
@@ -2950,7 +2923,7 @@ class ParseTextJS:
 
     def _parse_plant_setup(self):
         """json"""
-        return self.parse_type_only({"plural:", "singular:", "seed_name:", "ingredients:", "type:"})
+        return self.parse_type_only({"plural:", "singular:", "seed_name:"})
 
     """ special-masturbation """
 
@@ -3422,10 +3395,6 @@ class ParseTextJS:
                 or "textMap:" in line
                 or 'const output = month' in line
                 or 'createElement("span"' in line
-                or 'itemText' in line
-                or 'name: ' in line
-                or 'newItemProperties' in line
-                or 'item.name' in line
             ):
                 results.append(True)
             else:
